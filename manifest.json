@@ -1,0 +1,103 @@
+{
+    "$schema": "https://developer.microsoft.com/json-schemas/teams/v1.17/MicrosoftTeams.schema.json",
+    "manifestVersion": "1.17",
+    "version": "1.0.1",
+    "id": "ab7b1a17-2665-40e6-a22e-ad219ebd2fe1",
+    "localizationInfo": {
+        "defaultLanguageTag": "en-us",
+        "additionalLanguages": []
+    },
+    "developer": {
+        "name": "BlueCrocodile",
+        "websiteUrl": "https://www.bluecrocodile.it",
+        "privacyUrl": "https://www.officefileguard.com/privacy.html",
+        "termsOfUseUrl": "https://www.officefileguard.com/terms.html"
+    },
+    "name": {
+        "short": "OutlookFileGuard OWA",
+        "full": "OfficeFileGuard Outlook New/OWA Add-in"
+    },
+    "description": {
+        "short": "A Outlook OWA Add-in",
+        "full": "This is the Outlook New/OWA Add-in of the OfficeFileGuard solution"
+    },
+    "icons": {
+        "outline": "assets/outline.png",
+        "color": "assets/color.png"
+    },
+    "accentColor": "#230201",
+    "validDomains": [
+        "localhost:3000"
+    ],
+    "authorization": {
+        "permissions": {
+            "resourceSpecific": [
+                {
+                    "name": "MailboxItem.Read.User",
+                    "type": "Delegated"
+                }
+            ]
+        }
+    },
+    "extensions": [
+        {
+            "requirements": {
+                "capabilities": [
+                    {
+                        "name": "Mailbox",
+                        "minVersion": "1.12"
+                    }
+                ],
+                "scopes": [
+                    "mail"
+                ]
+            },
+            "runtimes": [
+                {
+                    "requirements": {
+                        "capabilities": [
+                            {
+                                "name": "Mailbox",
+                                "minVersion": "1.15"
+                            }
+                        ]
+                    },
+                    "id": "CommandsRuntime",
+                    "type": "general",
+                    "code": {
+                        "page": "https://localhost:3000/commands.html",
+                        "script": "https://localhost:3000/commands.js"
+                    },
+                    "lifetime": "short",
+                    "actions": [
+                        {
+                            "id": "onMessageSendHandler",
+                            "type": "executeFunction"
+                        }
+                    ]
+                }
+            ],
+            "autoRunEvents": [
+                {
+                    "requirements": {
+                        "capabilities": [
+                            {
+                                "name": "Mailbox",
+                                "minVersion": "1.15"
+                            }
+                        ]
+                    },
+                    "events": [
+                        {
+                            "type": "messageSending",
+                            "actionId": "onMessageSendHandler",
+                            "options": {
+                                "sendMode": "softBlock"
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}
