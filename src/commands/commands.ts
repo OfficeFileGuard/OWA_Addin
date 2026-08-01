@@ -1,9 +1,22 @@
 import JSZip from "jszip";
+declare const ADDIN_BASE_URL: string; // Variabile definita da un plugin di webpack.config.js - disponibile a runtime
 
-Office.onReady(() => {});
+console.log("commands.ts caricato e pronto!");
+console.debug("commands.ts caricato e pronto!");
+console.error("commands.ts caricato e pronto!");
+console.warn("commands.ts caricato e pronto!");
+console.info("commands.ts caricato e pronto!");
+
+
+Office.onReady(() => {
+  console.log("Office ready");
+  Office.actions.associate("onMessageSendHandler", onMessageSendHandler);
+});
 
 // Starting point quando la mail viene inviata
 async function onMessageSendHandler(event: Office.AddinCommands.Event) {
+  console.debug("onMessageSendHandler triggered");
+  console.log("onMessageSendHandler INIZIATA!");
   // Ottiene item come oggetto email in composizione 
   const item = Office.context.mailbox.item as Office.MessageCompose;
   // se non l'ottine conste l'invio e ritorna
@@ -14,6 +27,7 @@ async function onMessageSendHandler(event: Office.AddinCommands.Event) {
 
   try {
     // Verifica se ci sono destinatari esterni. Se non ci sono permette invio e esce
+    console.debug("Checking for external recipients...");
     const hasExternalRecipients = await checkExternalRecipients(item);
     if (!hasExternalRecipients) {
       event.completed({ allowEvent: true });
@@ -21,6 +35,7 @@ async function onMessageSendHandler(event: Office.AddinCommands.Event) {
     }
 
     // Verifica se ci sono allegati riservati. Se non ci sono permette invio e esce
+    console.debug("Checking for reserved attachments...");
     const hasReservedAttachments = await checkReservedAttachments(item);
     if (!hasReservedAttachments) {
       event.completed({ allowEvent: true });
@@ -30,11 +45,12 @@ async function onMessageSendHandler(event: Office.AddinCommands.Event) {
     // Entrambe le condizioni vere — apri il dialog e attendi la risposta
     await new Promise<void>((resolve) => {   //Promise attende la risposta del dialog
       Office.context.ui.displayDialogAsync(
-        "${ADDIN_BASE_URL}/guardalert.html",    //ADDIN_BASE_URL è una variabile definita da un plugin di webpack.config.js
-        { height: 50, width: 30, displayInIframe: false },
+        `${ADDIN_BASE_URL}/guardalert.html`,    //ADDIN_BASE_URL è una variabile definita da un plugin di webpack.config.js
+        { height: 45, width: 40, displayInIframe: true },
         (asyncResult) => {
           // Se il dialog non si apre, permette l'invio della mail e esce
           if (asyncResult.status === Office.AsyncResultStatus.Failed) {
+            console.error("Failed to open dialog:", asyncResult.error);
             event.completed({ allowEvent: true });
             resolve();  // risolve la Promise per terminare l'attesa
             return;
@@ -54,12 +70,12 @@ async function onMessageSendHandler(event: Office.AddinCommands.Event) {
                 return;
               }
 
-            // se invece c'è il messaggio
+              // se invece c'è il messaggio
               dialog.close();   // chiude il dialog
               // se il messaggio è "send", chiude l'evento e permette l'invio della mail
               if (args.message === "send") {
                 event.completed({ allowEvent: true });  // addin ha terminato il suo intervento e permette l'invio della mail
-              } 
+              }
               // altrimenti chiude l'evento e blocca l'invio della mail e mostra un messaggio di errore
               else {
                 (event as any).completed({ allowEvent: false, errorMessage: "⚠ This email contains confidential attachments addressed to external recipients. Please review before sending." });
@@ -68,6 +84,7 @@ async function onMessageSendHandler(event: Office.AddinCommands.Event) {
             }
           );
 
+          // creazione di un event handler di tipo DialogEventReceived (viene attivato quando il dialog viene chiuso senza scegliere alcun pulsante)
           dialog.addEventHandler(
             Office.EventType.DialogEventReceived,
             () => {
@@ -81,11 +98,18 @@ async function onMessageSendHandler(event: Office.AddinCommands.Event) {
 
   } catch {
     // In caso di errore, permette l'invio della mail e esce
+    console.error("An error occurred while checking the email: sending anyway");
     event.completed({ allowEvent: true });
     return;
   }
 }
 
+/**
+ * Verifica se i destinatari dell'email sono esterni.
+ * 
+ * @param item - L'oggetto email da controllare.
+ * @returns Un promise che risolve con true se ci sono destinatari esterni, false altrimenti.
+ */
 async function checkExternalRecipients(item: Office.MessageCompose): Promise<boolean> {
   const senderEmail = Office.context.mailbox.userProfile.emailAddress;
   const senderDomain = senderEmail.split("@")[1]?.toLowerCase() ?? "";
@@ -98,37 +122,43 @@ async function checkExternalRecipients(item: Office.MessageCompose): Promise<boo
     });
   };
 
-  const [to, cc, bcc] = await Promise.all([
-    getRecipients(item.to),
-    getRecipients(item.cc),
-    getRecipients(item.bcc)
-  ]);
+  const [to, cc, bcc] = await Promise.all([getRecipients(item.to), getRecipients(item.cc), getRecipients(item.bcc)]);
 
-  const allRecipients = [...to, ...cc, ...bcc];
+  const allRecipients = [...to, ...cc, ...bcc]; // Combina tutti i destinatari in un unico array
   return allRecipients.some(r => {
     const domain = r.emailAddress.split("@")[1]?.toLowerCase() ?? "";
     return domain !== senderDomain && domain !== "";
   });
 }
 
+/**
+ * Verifica se tra i file allegati all'email ce ne sono di riservati.
+ * 
+ * @param item - L'oggetto email da controllare.
+ * @returns Un promise che risolve con true se ci sono allegati riservati, false altrimenti.
+ */
 async function checkReservedAttachments(item: Office.MessageCompose): Promise<boolean> {
   return new Promise((resolve) => {
     item.getAttachmentsAsync(async (result) => {
+      // Se si verifica un errore o non ci sono allegati, risolve la promise con false e ritorna (dal callback getAttachmentsAsync non dalla funzione checkReservedAttachments)
+      console.log("there are ", result, " attachments");
       if (result.status !== Office.AsyncResultStatus.Succeeded || result.value.length === 0) {
         resolve(false);
         return;
       }
 
       const officeExtensions = [".docx", ".xlsx", ".pptx"];
+      // crea la lista dei soli allegati con estensione Office
       const officeAttachments = result.value.filter(a =>
         officeExtensions.some(ext => a.name.toLowerCase().endsWith(ext))
       );
-
+      // Se non ci sono allegati Office, risolve la promise con false e ritorna (dal callback getAttachmentsAsync non dalla funzione checkReservedAttachments)
+      console.log("office attachments :", officeAttachments);
       if (officeAttachments.length === 0) {
         resolve(false);
         return;
       }
-
+      // Cicla su tutti gli allegati Office, ma al primo che è reserved risolve la promise con true e ritorna (dal callback getAttachmentsAsync non dalla funzione checkReservedAttachments)
       for (const attachment of officeAttachments) {
         const isReserved = await isAttachmentReserved(item, attachment.id);
         if (isReserved) {
@@ -136,8 +166,10 @@ async function checkReservedAttachments(item: Office.MessageCompose): Promise<bo
           return;
         }
       }
-
+      // se nel ciclo sopra non ha trovato allegati riservati, risolve la promise con false e ritorna (dal callback getAttachmentsAsync non dalla funzione checkReservedAttachments)
+      console.log("no reserved attachments found");
       resolve(false);
+      return;
     });
   });
 }
@@ -160,29 +192,28 @@ async function isAttachmentReserved(item: Office.MessageCompose, attachmentId: s
         const zip = await JSZip.loadAsync(bytes.buffer);
         const customXmlFile = zip.file("docProps/custom.xml");
 
+        //console.log("customXmlFile :", customXmlFile);
         if (!customXmlFile) {
+          //console.log("customXmlFile is null");
           resolve(false);
           return;
         }
 
-        const xmlContent = await customXmlFile.async("string");
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(xmlContent, "application/xml");
-        const properties = doc.getElementsByTagName("property");
-
-        for (let i = 0; i < properties.length; i++) {
-          if (properties[i].getAttribute("name")?.toLowerCase() === "reserved") {
-            resolve(true);
-            return;
-          }
+        const xmlContent = await customXmlFile.async("string");  //metadati dell'allegato in formato stringa
+        console.log("xmlContent :", xmlContent);
+        // ricerca stringa "reserved" usando il metodo includes
+        if (xmlContent.includes('name="reserved"') || xmlContent.includes("name='reserved'")) {
+          console.log("Found 'reserved' in metadata");
+          resolve(true);
+          return;
         }
 
         resolve(false);
-      } catch {
+
+      } catch (error) {
+        console.error("isAttachmentReserved error: ", error);
         resolve(false);
       }
     });
   });
 }
-
-Office.actions.associate("onMessageSendHandler", onMessageSendHandler);

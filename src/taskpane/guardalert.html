@@ -111,7 +111,14 @@
             margin-bottom: 8px;
         }
 
+        .buttons > div {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
         .btn {
+            width: 100%;
             padding: 12px;
             border: none;
             border-radius: 6px;
@@ -120,6 +127,10 @@
             font-weight: 700;
             cursor: pointer;
             transition: opacity 0.2s;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 6px;
         }
 
         .btn:hover { opacity: 0.85; }
@@ -138,7 +149,7 @@
             font-size: 11px;
             color: #888;
             text-align: center;
-            margin-top: 2px;
+            margin-top: 4px;
         }
 
         .footer {

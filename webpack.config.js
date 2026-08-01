@@ -5,8 +5,8 @@ const CopyWebpackPlugin = require("copy-webpack-plugin");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
 const webpack = require("webpack");
 
-const urlDev = "https://localhost:3000/";
-const urlProd = "https://www.contoso.com/"; // CHANGE THIS TO YOUR PRODUCTION DEPLOYMENT LOCATION
+const urlDev = "https://localhost:3000";
+const urlProd = "https://www.contoso.com"; // CHANGE THIS TO YOUR PRODUCTION DEPLOYMENT LOCATION
 
 async function getHttpsOptions() {
   const httpsOptions = await devCerts.getHttpsServerOptions();
@@ -51,13 +51,13 @@ module.exports = async (env, options) => {
         },
       ],
     },
-    
+
     plugins: [
       new webpack.DefinePlugin({
         ADDIN_BASE_URL: JSON.stringify(
           process.env.NODE_ENV === "production"
-              ? urlProd
-              : urlDev
+            ? urlProd
+            : urlDev
         )
       }),
 
