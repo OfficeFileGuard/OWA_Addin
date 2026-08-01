@@ -80,7 +80,7 @@
             
             <!-- EVENTO: intercetta l'invio dell'email (uso ItemSend -deprecato- ma è l'unico che funziona con manifest in xml)-->
             <ExtensionPoint xsi:type="Events">
-              <Event Type="ItemSend"  
+              <Event Type="OnMessageSend"  
                     FunctionExecution="synchronous"
                     FunctionName="onMessageSendHandler"/>
             </ExtensionPoint>
