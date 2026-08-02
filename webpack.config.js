@@ -73,14 +73,28 @@ module.exports = async (env, options) => {
         chunks: [],
       }),
 
+      // modifica il manifest sostituendo gli indirizzi di produzione a quelli locali (development) se siamo in produzione
       new CopyWebpackPlugin({
         patterns: [
           {
             from: "assets/*",
             to: "assets/[name][ext][query]",
           },
+          // manifest.json
           {
             from: "manifest*.json",
+            to: "[name]" + "[ext]",
+            transform(content) {
+              if (dev) {
+                return content;
+              } else {
+                return content.toString().replace(new RegExp(urlDev, "g"), urlProd);
+              }
+            },
+          },
+          // manifest*.xml
+          {
+            from: "manifest*.xml",
             to: "[name]" + "[ext]",
             transform(content) {
               if (dev) {
