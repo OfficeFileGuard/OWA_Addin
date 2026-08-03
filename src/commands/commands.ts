@@ -13,13 +13,38 @@ Office.onReady(() => {
   Office.actions.associate("onMessageSendHandler", onMessageSendHandler);
 });
 
-// Starting point quando la mail viene inviata
+/** 
+ * Starting point quando la mail viene inviata
+ * Wrappa la funzione onSendHandler (è la funzione che realmente svolge il lavoro) in una nuova promise con un timeout
+ * Se si pianta il server officefileguard, al timeout restuisce sempre true (permette l'invio della mail)
+ * 
+ * @param event - L'evento associato al click sul pulsante di invio.
+ * @returns - Void
+ */
 async function onMessageSendHandler(event: Office.AddinCommands.Event) {
-  console.debug("onMessageSendHandler triggered");
-  console.log("onMessageSendHandler INIZIATA!");
-  // Ottiene item come oggetto email in composizione 
+  //console.debug("onMessageSendHandler triggered");
+  //console.log("onMessageSendHandler INIZIATA!");
+
+  const timeoutMS = 6000;  // Timeout in millisecondi
+
+  try { await withTimeout(onSendHandler(event), timeoutMS); }    // Wraps all the logic in a new Promise with timeout  
+  catch (error) {
+    console.error("Timeout or error during execution:", error);
+    event.completed({ allowEvent: true });  // In case of timeout, we allow the email to be sent anyway
+  }
+}
+
+
+/**
+ * Funzione che esegue tutta la logica principale dell'add-in
+ * 
+ * @param event - L'evento associato al click sul pulsante di invio.
+ * @returns - Void
+ */
+async function onSendHandler(event: Office.AddinCommands.Event): Promise<void> {
+  // Ottiene item l'oggetto email in composizione 
   const item = Office.context.mailbox.item as Office.MessageCompose;
-  // se non l'ottine conste l'invio e ritorna
+  // se non l'ottiene consente l'invio e ritorna
   if (!item) {
     event.completed({ allowEvent: true });
     return;
@@ -27,7 +52,7 @@ async function onMessageSendHandler(event: Office.AddinCommands.Event) {
 
   try {
     // Verifica se ci sono destinatari esterni. Se non ci sono permette invio e esce
-    console.debug("Checking for external recipients...");
+    //console.debug("Checking for external recipients...");
     const hasExternalRecipients = await checkExternalRecipients(item);
     if (!hasExternalRecipients) {
       event.completed({ allowEvent: true });
@@ -35,15 +60,15 @@ async function onMessageSendHandler(event: Office.AddinCommands.Event) {
     }
 
     // Verifica se ci sono allegati riservati. Se non ci sono permette invio e esce
-    console.debug("Checking for reserved attachments...");
+    //console.debug("Checking for reserved attachments...");
     const hasReservedAttachments = await checkReservedAttachments(item);
     if (!hasReservedAttachments) {
       event.completed({ allowEvent: true });
       return;
     }
 
-    // Entrambe le condizioni vere — apri il dialog e attendi la risposta
-    await new Promise<void>((resolve) => {   //Promise attende la risposta del dialog
+    // Entrambe le condizioni vere — apre il dialog e attende la risposta
+    await new Promise<void>((resolveDialog) => {   //Promise attende la risposta del dialog
       Office.context.ui.displayDialogAsync(
         `${ADDIN_BASE_URL}/guardalert.html`,    //ADDIN_BASE_URL è una variabile definita da un plugin di webpack.config.js
         { height: 45, width: 40, displayInIframe: true },
@@ -52,21 +77,26 @@ async function onMessageSendHandler(event: Office.AddinCommands.Event) {
           if (asyncResult.status === Office.AsyncResultStatus.Failed) {
             console.error("Failed to open dialog:", asyncResult.error);
             event.completed({ allowEvent: true });
-            resolve();  // risolve la Promise per terminare l'attesa
+            resolveDialog();  // risolve la Promise per terminare l'attesa
             return;
           }
 
           const dialog = asyncResult.value;     // dialog contiene l'oggetto dialog
+          let dialogHandled = false;          // indica se il dialog è stato gestito
 
           // creazione di un event handler di tipo DialogMessageReceived (viene attivato quando il dialog invia un messaggio)
           dialog.addEventHandler(
             Office.EventType.DialogMessageReceived,
             (args: { message: string; origin: string | undefined; } | { error: number; }) => {
+              // se il dialog è già stato gestito, esce
+              if (dialogHandled) return;
+              dialogHandled = true; // altrimenti, imposta che il dialogo è stato gestito
+
               // se non c'è il messaggio, chiude l'evento, risolve la Promise e esce
               if (!('message' in args)) {
                 console.warn('DialogMessageReceived event triggered without a "message" property. Proceeding with send');
                 event.completed({ allowEvent: true });
-                resolve();
+                resolveDialog();
                 return;
               }
 
@@ -80,29 +110,31 @@ async function onMessageSendHandler(event: Office.AddinCommands.Event) {
               else {
                 (event as any).completed({ allowEvent: false, errorMessage: "⚠ This email contains confidential attachments addressed to external recipients. Please review before sending." });
               }
-              resolve();
+              resolveDialog();
             }
           );
 
           // creazione di un event handler di tipo DialogEventReceived (viene attivato quando il dialog viene chiuso senza scegliere alcun pulsante)
-          dialog.addEventHandler(
-            Office.EventType.DialogEventReceived,
-            () => {
-              (event as any).completed({ allowEvent: false, errorMessage: "⚠ This email contains confidential attachments addressed to external recipients. Please review before sending." });
-              resolve();
-            }
-          );
+          dialog.addEventHandler(Office.EventType.DialogEventReceived, () => {
+            if (dialogHandled) return;    // se il dialog è già stato gestito, esce
+            dialogHandled = true;        // altrimenti, imposta che il dialogo è stato gestito
+
+            // Si arriva qui se utente chiude dialog senza scegliere uno dei pulsanti
+            // quindi blocca l'invio della mail e mostra un messaggio di errore
+            (event as any).completed({ allowEvent: false, errorMessage: "⚠ This email contains confidential attachments addressed to external recipients. Please review before sending." });
+            resolveDialog();
+          });
         }
       );
     });
 
-  } catch {
-    // In caso di errore, permette l'invio della mail e esce
+  }
+  catch (error) {  // In caso di errore, permette l'invio della mail e esce
     console.error("An error occurred while checking the email: sending anyway");
     event.completed({ allowEvent: true });
-    return;
   }
 }
+
 
 /**
  * Verifica se i destinatari dell'email sono esterni.
@@ -202,7 +234,7 @@ async function isAttachmentReserved(item: Office.MessageCompose, attachmentId: s
         const xmlContent = await customXmlFile.async("string");  //metadati dell'allegato in formato stringa
         console.log("xmlContent :", xmlContent);
         // ricerca stringa "reserved" usando il metodo includes
-        if (xmlContent.includes('name="reserved"') || xmlContent.includes("name='reserved'")) {
+        if (xmlContent.toLowerCase().includes('name="reserved"') || xmlContent.toLowerCase().includes("name='reserved'")) {
           console.log("Found 'reserved' in metadata");
           resolve(true);
           return;
@@ -215,5 +247,23 @@ async function isAttachmentReserved(item: Office.MessageCompose, attachmentId: s
         resolve(false);
       }
     });
+  });
+}
+
+
+/**
+ * Aggiunge un timeout ad una promise
+ * 
+ * @param promise La promise in input
+ * @param ms Timeout in millisecondi
+ * @returns La nuova promise con timeout
+ */
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`Timeout after ${ms}ms`)), ms);
+    // se non è scaduto il timeout, ritorna il result di promise oppure il suo errore, e cancella il timeout
+    promise
+      .then((result) => { clearTimeout(timer); resolve(result); })
+      .catch((error) => { clearTimeout(timer); reject(error); });
   });
 }
