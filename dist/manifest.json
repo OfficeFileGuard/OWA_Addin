@@ -65,7 +65,7 @@
                     "id": "CommandsRuntime",
                     "type": "general",
                     "code": {
-                        "page": "https://officefileguard-owa.pages.dev/commands.html"
+                        "page": "https://owaaddin.officefileguard.com/commands.html"
                     },
                     "lifetime": "short",
                     "actions": [
