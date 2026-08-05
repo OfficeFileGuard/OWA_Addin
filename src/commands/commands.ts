@@ -69,9 +69,10 @@ async function onSendHandler(event: Office.AddinCommands.Event): Promise<void> {
 
     // Entrambe le condizioni vere — apre il dialog e attende la risposta
     await new Promise<void>((resolveDialog) => {   //Promise attende la risposta del dialog
+      console.warn("warning dialog : ", `${ADDIN_BASE_URL}/guardalert.html`)
       Office.context.ui.displayDialogAsync(
         `${ADDIN_BASE_URL}/guardalert.html`,    //ADDIN_BASE_URL è una variabile definita da un plugin di webpack.config.js
-        { height: 45, width: 40, displayInIframe: true },
+        { height: 45, width: 40, displayInIframe: false },
         (asyncResult) => {
           // Se il dialog non si apre, permette l'invio della mail e esce
           if (asyncResult.status === Office.AsyncResultStatus.Failed) {
@@ -184,8 +185,8 @@ async function checkReservedAttachments(item: Office.MessageCompose): Promise<bo
       const officeAttachments = result.value.filter(a =>
         officeExtensions.some(ext => a.name.toLowerCase().endsWith(ext))
       );
-      // Se non ci sono allegati Office, risolve la promise con false e ritorna (dal callback getAttachmentsAsync non dalla funzione checkReservedAttachments)
       console.log("office attachments :", officeAttachments);
+      // Se non ci sono allegati Office, risolve la promise con false e ritorna (dal callback getAttachmentsAsync non dalla funzione checkReservedAttachments)
       if (officeAttachments.length === 0) {
         resolve(false);
         return;
