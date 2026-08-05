@@ -71,12 +71,13 @@ async function onSendHandler(event: Office.AddinCommands.Event): Promise<void> {
     await new Promise<void>((resolveDialog) => {   //Promise attende la risposta del dialog
       console.log('--PROVA--');
       console.warn("warning dialog : ", `${ADDIN_BASE_URL}/guardalert.html`);
-      debugger;
+      alert("STOP");
       Office.context.ui.displayDialogAsync(
         "https://owaaddin.officefileguard.com/guardalert.html",//`${ADDIN_BASE_URL}/guardalert.html`,    //ADDIN_BASE_URL è una variabile definita da un plugin di webpack.config.js
         { height: 45, width: 40, displayInIframe: false },
         (asyncResult) => {
           // Se il dialog non si apre, permette l'invio della mail e esce
+          console.warn("sto per fare verifica stato Office UI")
           if (asyncResult.status === Office.AsyncResultStatus.Failed) {
             console.error("Failed to open dialog:", asyncResult.error);
             event.completed({ allowEvent: true });
