@@ -22,8 +22,8 @@ Office.onReady(() => {
  * @returns - Void
  */
 async function onMessageSendHandler(event: Office.AddinCommands.Event) {
-  //console.debug("onMessageSendHandler triggered");
-  //console.log("onMessageSendHandler INIZIATA!");
+  console.debug("onMessageSendHandler triggered");
+  console.log("onMessageSendHandler INIZIATA!");
 
   const timeoutMS = 6000;  // Timeout in millisecondi
 
@@ -52,7 +52,7 @@ async function onSendHandler(event: Office.AddinCommands.Event): Promise<void> {
 
   try {
     // Verifica se ci sono destinatari esterni. Se non ci sono permette invio e esce
-    //console.debug("Checking for external recipients...");
+    console.debug("Checking for external recipients...");
     const hasExternalRecipients = await checkExternalRecipients(item);
     if (!hasExternalRecipients) {
       event.completed({ allowEvent: true });
@@ -60,7 +60,7 @@ async function onSendHandler(event: Office.AddinCommands.Event): Promise<void> {
     }
 
     // Verifica se ci sono allegati riservati. Se non ci sono permette invio e esce
-    //console.debug("Checking for reserved attachments...");
+    console.debug("Checking for reserved attachments...");
     const hasReservedAttachments = await checkReservedAttachments(item);
     if (!hasReservedAttachments) {
       event.completed({ allowEvent: true });
@@ -224,9 +224,9 @@ async function isAttachmentReserved(item: Office.MessageCompose, attachmentId: s
         const zip = await JSZip.loadAsync(bytes.buffer);
         const customXmlFile = zip.file("docProps/custom.xml");
 
-        //console.log("customXmlFile :", customXmlFile);
+        console.log("customXmlFile :", customXmlFile);
         if (!customXmlFile) {
-          //console.log("customXmlFile is null");
+          console.log("customXmlFile is null");
           resolve(false);
           return;
         }
