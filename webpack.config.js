@@ -55,9 +55,9 @@ module.exports = async (env, options) => {
     plugins: [
       new webpack.DefinePlugin({
         ADDIN_BASE_URL: JSON.stringify(
-          process.env.NODE_ENV === "production"
-            ? urlProd
-            : urlDev
+          dev
+            ? urlDev
+            : urlProd
         )
       }),
 
