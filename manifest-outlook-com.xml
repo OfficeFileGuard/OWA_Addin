@@ -60,7 +60,7 @@
   <!-- ===== VERSIONE OVERRIDES PER EVENTI ===== -->
   <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides" xsi:type="VersionOverridesV1_0">
 
-    <!-- Annidamento di V1_1 all'interno di V1_0 (obbligatorio per avere il supporto a Events -->
+    <!-- Annidamento di V1_1 all'interno di V1_0 (obbligatorio per avere il supporto a LaunchEvents -->
     <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides/1.1" xsi:type="VersionOverridesV1_1">
 
 
@@ -73,16 +73,26 @@
     
       <Hosts>
         <Host xsi:type="MailHost">
+
+          <Runtimes>
+            <Runtime resid="Commands.Url" lifetime="short">
+              <Override type="javascript" resid="Commands.Js"/>
+            </Runtime>
+          </Runtimes>
+
           <DesktopFormFactor>
             
             <!-- File che contiene le funzioni -->
             <FunctionFile resid="Commands.Url"/>
             
             <!-- EVENTO: intercetta l'invio dell'email (uso ItemSend -deprecato- ma è l'unico che funziona con manifest in xml)-->
-            <ExtensionPoint xsi:type="Events">
-              <Event Type="OnMessageSend"  
-                    FunctionExecution="synchronous"
-                    FunctionName="onMessageSendHandler"/>
+            <ExtensionPoint xsi:type="LaunchEvent">
+              <LaunchEvents>
+                <LaunchEvent  Type="OnMessageSend"
+                              FunctionName="onMessageSendHandler"
+                              SendMode="PromptUser" />
+              </LaunchEvents>
+              <SourceLocation resid="Commands.Url"/>
             </ExtensionPoint>
             
           </DesktopFormFactor>
@@ -93,6 +103,7 @@
       <Resources>
         <bt:Urls>
           <bt:Url id="Commands.Url" DefaultValue="https://localhost:3000/commands.html"/>
+          <bt:Url id="Commands.Js" DefaultValue="https://localhost:3000/commands.js"/>
         </bt:Urls>
       </Resources>
     
