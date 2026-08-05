@@ -25,7 +25,7 @@ async function onMessageSendHandler(event: Office.AddinCommands.Event) {
   console.debug("onMessageSendHandler triggered");
   console.log("onMessageSendHandler INIZIATA!");
 
-  const timeoutMS = 6000;  // Timeout in millisecondi
+  const timeoutMS = 60000;  // Timeout in millisecondi
 
   try { await withTimeout(onSendHandler(event), timeoutMS); }    // Wraps all the logic in a new Promise with timeout  
   catch (error) {
