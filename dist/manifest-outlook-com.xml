@@ -90,7 +90,7 @@
               <LaunchEvents>
                 <LaunchEvent  Type="OnMessageSend"
                               FunctionName="onMessageSendHandler"
-                              SendMode="PromptUser" />
+                              SendMode="SoftBlock" />
               </LaunchEvents>
               <SourceLocation resid="Commands.Url"/>
             </ExtensionPoint>
