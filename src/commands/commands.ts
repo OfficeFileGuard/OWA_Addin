@@ -211,32 +211,37 @@ async function checkReservedAttachments(item: Office.MessageCompose): Promise<bo
 async function isAttachmentReserved(item: Office.MessageCompose, attachmentId: string): Promise<boolean> {
   return new Promise((resolve) => {
     item.getAttachmentContentAsync(attachmentId, async (result) => {
+      console.log("getAttachmentContentAsync result:", result);
       if (result.status !== Office.AsyncResultStatus.Succeeded) {
+        console.error("getAttachmentContentAsync failed:", result.error);
         resolve(false);
         return;
       }
 
       try {
-        const base64 = result.value.content;
-        const binary = atob(base64);
-        const bytes = new Uint8Array(binary.length);
-        for (let i = 0; i < binary.length; i++)
-          bytes[i] = binary.charCodeAt(i);
+        const rawContent = result.value.content;
+        // Rimuove eventuali prefissi data-url e spazi/a capo dal base64
+        const cleanBase64 = rawContent.replace(/^data:.*;base64,/, "").replace(/\s/g, "");
 
-        const zip = await JSZip.loadAsync(bytes.buffer);
-        const customXmlFile = zip.file("docProps/custom.xml");
+        // Carica lo zip direttamente dalla stringa base64 tramite JSZip
+        const zip = await JSZip.loadAsync(cleanBase64, { base64: true });
+
+        // Cerca docProps/custom.xml in modo case-insensitive e tollerante ai separatori / e \
+        const customXmlFiles = zip.file(/docProps[\/\\]custom\.xml$/i);
+        const customXmlFile = customXmlFiles.length > 0 ? customXmlFiles[0] : null;
 
         console.log("customXmlFile :", customXmlFile);
         if (!customXmlFile) {
-          console.log("customXmlFile is null");
+          console.log("customXmlFile is null (non trovato nello zip)");
           resolve(false);
           return;
         }
 
-        const xmlContent = await customXmlFile.async("string");  //metadati dell'allegato in formato stringa
+        const xmlContent = await customXmlFile.async("string");  // metadati dell'allegato in formato stringa
         console.log("xmlContent :", xmlContent);
-        // ricerca stringa "reserved" usando il metodo includes
-        if (xmlContent.toLowerCase().includes('name="reserved"') || xmlContent.toLowerCase().includes("name='reserved'")) {
+
+        // ricerca stringa "reserved" usando una regex tollerante per l'attributo name="reserved" o name='reserved'
+        if (/name=["']reserved["']/i.test(xmlContent)) {
           console.log("Found 'reserved' in metadata");
           resolve(true);
           return;
