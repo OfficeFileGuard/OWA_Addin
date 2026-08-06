@@ -72,7 +72,7 @@ async function onSendHandler(event: Office.AddinCommands.Event): Promise<void> {
       console.warn("warning dialog : ", `${ADDIN_BASE_URL}/guardalert.html`);
       Office.context.ui.displayDialogAsync(
         `${ADDIN_BASE_URL}/guardalert.html`,    //ADDIN_BASE_URL è una variabile definita da un plugin di webpack.config.js
-        { height: 45, width: 40, displayInIframe: false },
+        { height: 45, width: 40, displayInIframe: true },
         (asyncResult) => {
           // Se il dialog non si apre, permette l'invio della mail e esce
           console.warn("sto per fare verifica stato Office UI")
