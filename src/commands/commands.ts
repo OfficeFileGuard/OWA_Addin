@@ -50,6 +50,19 @@ async function onSendHandler(event: Office.AddinCommands.Event): Promise<void> {
     return;
   }
 
+  let activeDialog: Office.Dialog | null = null;
+
+  const closeDialogSafely = () => {
+    if (activeDialog) {
+      try {
+        activeDialog.close();
+      } catch (e) {
+        console.warn("Exception closing dialog:", e);
+      }
+      activeDialog = null;
+    }
+  };
+
   try {
     // Verifica se ci sono destinatari esterni. Se non ci sono permette invio e esce
     console.debug("Checking for external recipients...");
@@ -72,7 +85,7 @@ async function onSendHandler(event: Office.AddinCommands.Event): Promise<void> {
       console.warn("warning dialog : ", `${ADDIN_BASE_URL}/guardalert.html`);
       Office.context.ui.displayDialogAsync(
         `${ADDIN_BASE_URL}/guardalert.html`,    //ADDIN_BASE_URL è una variabile definita da un plugin di webpack.config.js
-        { height: 45, width: 40, displayInIframe: true },
+        { height: 44, width: 40, displayInIframe: false },
         (asyncResult) => {
           // Se il dialog non si apre, permette l'invio della mail e esce
           console.warn("sto per fare verifica stato Office UI")
@@ -83,29 +96,32 @@ async function onSendHandler(event: Office.AddinCommands.Event): Promise<void> {
             return;
           }
 
-          const dialog = asyncResult.value;     // dialog contiene l'oggetto dialog
+          activeDialog = asyncResult.value;     // activeDialog contiene l'oggetto dialog aperto
           let dialogHandled = false;          // indica se il dialog è stato gestito
 
           // creazione di un event handler di tipo DialogMessageReceived (viene attivato quando il dialog invia un messaggio)
-          dialog.addEventHandler(
+          activeDialog.addEventHandler(
             Office.EventType.DialogMessageReceived,
             (args: { message: string; origin: string | undefined; } | { error: number; }) => {
               // se il dialog è già stato gestito, esce
               if (dialogHandled) return;
               dialogHandled = true; // altrimenti, imposta che il dialogo è stato gestito
 
-              // se non c'è il messaggio, chiude l'evento, risolve la Promise e esce
+              // se non c'è il messaggio, chiude in sicurezza il dialog, sblocca l'invio e esce
               if (!('message' in args)) {
                 console.warn('DialogMessageReceived event triggered without a "message" property. Proceeding with send');
+                closeDialogSafely();
                 event.completed({ allowEvent: true });
                 resolveDialog();
                 return;
               }
 
               // se invece c'è il messaggio
-              dialog.close();   // chiude il dialog
+              const message = args.message;
+              closeDialogSafely();   // chiude sempre in sicurezza il dialog
+
               // se il messaggio è "send", chiude l'evento e permette l'invio della mail
-              if (args.message === "send") {
+              if (message === "send") {
                 event.completed({ allowEvent: true });  // addin ha terminato il suo intervento e permette l'invio della mail
               }
               // altrimenti chiude l'evento e blocca l'invio della mail e mostra un messaggio di errore
@@ -116,10 +132,11 @@ async function onSendHandler(event: Office.AddinCommands.Event): Promise<void> {
             }
           );
 
-          // creazione di un event handler di tipo DialogEventReceived (viene attivato quando il dialog viene chiuso senza scegliere alcun pulsante)
-          dialog.addEventHandler(Office.EventType.DialogEventReceived, () => {
+          // creazione di un event handler di tipo DialogEventReceived (viene attivato quando il dialog viene chiuso dall'utente con la X)
+          activeDialog.addEventHandler(Office.EventType.DialogEventReceived, () => {
             if (dialogHandled) return;    // se il dialog è già stato gestito, esce
             dialogHandled = true;        // altrimenti, imposta che il dialogo è stato gestito
+            activeDialog = null;         // il dialog è già stato chiuso dall'utente via UI
 
             // Si arriva qui se utente chiude dialog senza scegliere uno dei pulsanti
             // quindi blocca l'invio della mail e mostra un messaggio di errore
@@ -131,8 +148,9 @@ async function onSendHandler(event: Office.AddinCommands.Event): Promise<void> {
     });
 
   }
-  catch (error) {  // In caso di errore, permette l'invio della mail e esce
-    console.error("An error occurred while checking the email: sending anyway");
+  catch (error) {  // In caso di errore imprevisto, chiude il dialog se aperto, permette l'invio della mail e esce
+    console.error("An error occurred while checking the email: sending anyway", error);
+    closeDialogSafely();
     event.completed({ allowEvent: true });
   }
 }
