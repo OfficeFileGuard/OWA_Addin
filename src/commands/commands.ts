@@ -15,8 +15,8 @@ Office.onReady(() => {
 
 /** 
  * Starting point quando la mail viene inviata
- * Wrappa la funzione onSendHandler (è la funzione che realmente svolge il lavoro) in una nuova promise con un timeout
- * Se si pianta il server officefileguard, al timeout restuisce sempre true (permette l'invio della mail)
+ * Wrappa la funzione onSendHandler in un timeout.
+ * Se il dialog si apre con successo, il timeout viene annullato per consentire all'utente di scegliere dal dialog senza limiti di tempo.
  * 
  * @param event - L'evento associato al click sul pulsante di invio.
  * @returns - Void
@@ -25,9 +25,11 @@ async function onMessageSendHandler(event: Office.AddinCommands.Event) {
   console.debug("onMessageSendHandler triggered");
   console.log("onMessageSendHandler INIZIATA!");
 
-  const timeoutMS = 60000;  // Timeout in millisecondi
+  const timeoutMS = 6000;  // Timeout in millisecondi
 
-  try { await withTimeout(onSendHandler(event), timeoutMS); }    // Wraps all the logic in a new Promise with timeout  
+  try {
+    await withTimeout((cancelTimeout) => onSendHandler(event, cancelTimeout), timeoutMS);
+  }
   catch (error) {
     console.error("Timeout or error during execution:", error);
     event.completed({ allowEvent: true });  // In case of timeout, we allow the email to be sent anyway
@@ -39,9 +41,10 @@ async function onMessageSendHandler(event: Office.AddinCommands.Event) {
  * Funzione che esegue tutta la logica principale dell'add-in
  * 
  * @param event - L'evento associato al click sul pulsante di invio.
+ * @param cancelTimeout - Callback per annullare il timeout quando il dialog viene aperto con successo.
  * @returns - Void
  */
-async function onSendHandler(event: Office.AddinCommands.Event): Promise<void> {
+async function onSendHandler(event: Office.AddinCommands.Event, cancelTimeout?: () => void): Promise<void> {
   // Ottiene item l'oggetto email in composizione 
   const item = Office.context.mailbox.item as Office.MessageCompose;
   // se non l'ottiene consente l'invio e ritorna
@@ -94,6 +97,11 @@ async function onSendHandler(event: Office.AddinCommands.Event): Promise<void> {
             event.completed({ allowEvent: true });
             resolveDialog();  // risolve la Promise per terminare l'attesa
             return;
+          }
+
+          // Se il dialog si apre con successo, cancella il timeout in modo che l'utente possa scegliere con calma
+          if (cancelTimeout) {
+            cancelTimeout();
           }
 
           activeDialog = asyncResult.value;     // activeDialog contiene l'oggetto dialog aperto
@@ -277,18 +285,39 @@ async function isAttachmentReserved(item: Office.MessageCompose, attachmentId: s
 
 
 /**
- * Aggiunge un timeout ad una promise
+ * Aggiunge un timeout ad una funzione asincrona.
+ * Se la funzione eseguita chiama `cancelTimeout()`, il timer del timeout viene annullato.
  * 
- * @param promise La promise in input
+ * @param fn La funzione asincrona che riceve il callback per annullare il timeout
  * @param ms Timeout in millisecondi
- * @returns La nuova promise con timeout
+ * @returns La promise risultante con gestione del timeout
  */
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+function withTimeout<T>(
+  fn: (cancelTimeout: () => void) => Promise<T>,
+  ms: number
+): Promise<T> {
   return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`Timeout after ${ms}ms`)), ms);
-    // se non è scaduto il timeout, ritorna il result di promise oppure il suo errore, e cancella il timeout
-    promise
-      .then((result) => { clearTimeout(timer); resolve(result); })
-      .catch((error) => { clearTimeout(timer); reject(error); });
+    let timer: NodeJS.Timeout | null = setTimeout(() => {
+      timer = null;
+      reject(new Error(`Timeout after ${ms}ms`));
+    }, ms);
+
+    const cancelTimeout = () => {
+      if (timer !== null) {
+        clearTimeout(timer);
+        timer = null;
+        console.log("Timeout annullato (dialog aperto o operazione completata)");
+      }
+    };
+
+    fn(cancelTimeout)
+      .then((result) => {
+        cancelTimeout();
+        resolve(result);
+      })
+      .catch((error) => {
+        cancelTimeout();
+        reject(error);
+      });
   });
 }
