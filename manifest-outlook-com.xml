@@ -16,7 +16,7 @@
   <Description DefaultValue="Protects reserved Office documents when sending email from New Outlook and Outlook on the web."/>
   
   <!-- Icone -->
-  <IconUrl DefaultValue="https://localhost:3000/assets/color.png"/>
+  <IconUrl DefaultValue="https://localhost:3000/assets/officefileguard_icon.png"/>
   <HighResolutionIconUrl DefaultValue="https://localhost:3000/assets/outline.png"/>
   
   <!-- Supporto e domini -->
