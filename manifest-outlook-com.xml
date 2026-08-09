@@ -12,8 +12,8 @@
   <DefaultLocale>en-US</DefaultLocale>
   
   <!-- Nomi e descrizioni -->
-  <DisplayName DefaultValue="OutlookFileGuard OWA"/>
-  <Description DefaultValue="This is the Outlook New/OWA (free account) Add-in of the OfficeFileGuard solution"/>
+  <DisplayName DefaultValue="OfficeFileGuard for New Outlook"/>
+  <Description DefaultValue="Protects reserved Office documents when sending email from New Outlook and Outlook on the web."/>
   
   <!-- Icone -->
   <IconUrl DefaultValue="https://localhost:3000/assets/color.png"/>
